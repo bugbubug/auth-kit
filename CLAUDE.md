@@ -77,9 +77,11 @@ immutable git tag, so any change ships as a new tag (never force-move a tag).
 
 ## How a consumer wires it
 
-The consumer installs by **git tag** (`pnpm add github:bugbubug/auth-kit#v1.0.0`)
-and lets its own bundler (wrangler/esbuild) compile the **raw TS** — no build
-step in the kit. `jose` rides along as the kit's transitive dep. The consumer
+The consumer installs by **git tag** (`pnpm add github:bugbubug/auth-kit#v1.0.1`)
+and consumes the committed **`dist/` (ESM `.js` + `.d.ts`)** — its `tsc` reads the
+shipped `.d.ts` (so the kit's tsconfig strictness never leaks into the consumer's
+typecheck), its bundler (wrangler/esbuild) bundles the `.js`. Rebuild `dist` with
+`pnpm build` before tagging a release. `jose` rides along as the kit's transitive dep. The consumer
 writes the CF adapters (`KvOtpStore`, `CfEmailSender`), re-uses `FetchJwksSource`,
 calls `createEmailOtpService` / `createGoogleVerifier`, and maps the result onto
 its own identity layer:

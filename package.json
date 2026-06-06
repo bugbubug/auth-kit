@@ -1,19 +1,29 @@
 {
   "name": "@bugbubug/auth-kit",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Pure, hexagonal, framework-agnostic auth verification (Email OTP + Google id_token) — verifies control of an identifier and returns a single VerifiedIdentity. No users/sessions/cookies.",
   "license": "MIT",
   "author": "bugbubug",
   "type": "module",
-  "main": "./src/index.ts",
-  "module": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./adapters": "./src/adapters/index.ts",
-    "./zod": "./src/zod.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./adapters": {
+      "types": "./dist/adapters/index.d.ts",
+      "default": "./dist/adapters/index.js"
+    },
+    "./zod": {
+      "types": "./dist/zod.d.ts",
+      "default": "./dist/zod.js"
+    }
   },
   "files": [
+    "dist",
     "src",
     "docs",
     "README.md",
@@ -21,9 +31,10 @@
     "LICENSE"
   ],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "pnpm build",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.build.json"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "jose": "^6.0.0"
@@ -39,6 +50,7 @@
   "devDependencies": {
     "typescript": "^5.7.0",
     "vitest": "^3.0.0",
+    "zod": "^3.24.1",
     "@types/node": "^22.0.0"
   }
 }

@@ -1,0 +1,31 @@
+/**
+ * Shared, dependency-free utilities. `normalizeEmail` is part of the frozen
+ * public surface (exported so emo matches keys/users the same way the core does).
+ */
+/**
+ * Normalize an address the same way the core does: trim surrounding whitespace,
+ * then lowercase. This is the canonical form used both for the `email:<addr>`
+ * providerSubject and for the OtpStore key, so emo can derive matching keys/rows.
+ */
+export function normalizeEmail(raw) {
+    return raw.trim().toLowerCase();
+}
+/**
+ * Date.now()-backed default Clock. Returns the current time in Unix epoch
+ * MILLISECONDS from the platform clock. Inject a fixed Clock in tests for
+ * determinism.
+ */
+export const systemClock = {
+    now() {
+        return Date.now();
+    },
+};
+/**
+ * Derive the OtpStore key for an email. The core owns key derivation so adapters
+ * never build keys themselves; the `otp:` prefix namespaces OTP records inside a
+ * shared KV/store and the email is normalized first for stable lookups.
+ */
+export function otpKey(email) {
+    return "otp:" + normalizeEmail(email);
+}
+//# sourceMappingURL=util.js.map

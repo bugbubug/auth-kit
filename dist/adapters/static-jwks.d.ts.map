@@ -1,0 +1,1 @@
+{"version":3,"file":"static-jwks.d.ts","sourceRoot":"","sources":["../../src/adapters/static-jwks.ts"],"names":[],"mappings":"AAAA;;;;;;;GAOG;AAEH,OAAO,KAAK,EAAE,GAAG,EAAE,UAAU,EAAE,MAAM,aAAa,CAAC;AAEnD,qBAAa,gBAAiB,YAAW,UAAU;IACjD,OAAO,CAAC,QAAQ,CAAC,IAAI,CAAQ;IAE7B,mEAAmE;gBACvD,IAAI,EAAE,GAAG,EAAE;IAMjB,OAAO,IAAI,OAAO,CAAC;QAAE,IAAI,EAAE,GAAG,EAAE,CAAA;KAAE,CAAC;CAI1C"}

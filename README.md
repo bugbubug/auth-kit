@@ -70,11 +70,13 @@ business importing.
 
 ## Install
 
-The kit ships **raw TypeScript** compiled by your own bundler (wrangler/esbuild).
-Pin it by **git tag**:
+The kit ships **compiled `dist/` (ESM `.js` + `.d.ts`)** committed in the repo, so
+any consumer gets prebuilt types (your `tsc` reads the `.d.ts`, skipped by
+`skipLibCheck`) and prebuilt JS (your bundler — wrangler/esbuild — bundles it
+directly, no build step). Pin it by **git tag**:
 
 ```bash
-pnpm add github:bugbubug/auth-kit#v1.0.0
+pnpm add github:bugbubug/auth-kit#v1.0.1
 ```
 
 `jose` is a transitive dependency of the kit (used for Google signature
