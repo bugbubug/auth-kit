@@ -66,40 +66,50 @@ export class FetchJwksSource implements JwksSource {
   }
 
   private async refresh(): Promise<{ keys: Jwk[] }> {
+    // Keep the 5s timeout armed across the WHOLE operation — both the fetch
+    // (headers) AND the body read — so a stalled body can't hang past the
+    // deadline. A single clearTimeout in finally disarms it after the body
+    // read completes or after any throw.
     let response: Response;
+    let body: unknown;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     try {
-      response = await fetch(this.url, {
-        headers: { accept: "application/json" },
-        signal: controller.signal,
-      });
-    } catch (cause) {
+      try {
+        response = await fetch(this.url, {
+          headers: { accept: "application/json" },
+          signal: controller.signal,
+        });
+      } catch (cause) {
+        throw new AuthKitError(
+          "jwks_failure",
+          `Failed to fetch JWKS from ${this.url}`,
+          { cause },
+        );
+      }
+
+      // Outside the body try/catch so this jwks_failure propagates unchanged
+      // (it must NOT be remapped to the invalid-JSON message).
+      if (!response.ok) {
+        throw new AuthKitError(
+          "jwks_failure",
+          `JWKS endpoint ${this.url} returned HTTP ${response.status}`,
+        );
+      }
+
+      try {
+        // Still under the timeout: an AbortError here (stalled body) surfaces
+        // as the invalid-JSON failure with the abort attached as the cause.
+        body = await response.json();
+      } catch (cause) {
+        throw new AuthKitError(
+          "jwks_failure",
+          `JWKS response from ${this.url} was not valid JSON`,
+          { cause },
+        );
+      }
+    } finally {
       clearTimeout(timeoutId);
-      throw new AuthKitError(
-        "jwks_failure",
-        `Failed to fetch JWKS from ${this.url}`,
-        { cause },
-      );
-    }
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new AuthKitError(
-        "jwks_failure",
-        `JWKS endpoint ${this.url} returned HTTP ${response.status}`,
-      );
-    }
-
-    let body: unknown;
-    try {
-      body = await response.json();
-    } catch (cause) {
-      throw new AuthKitError(
-        "jwks_failure",
-        `JWKS response from ${this.url} was not valid JSON`,
-        { cause },
-      );
     }
 
     const keys = extractKeys(body);

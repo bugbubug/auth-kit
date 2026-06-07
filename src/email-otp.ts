@@ -144,8 +144,15 @@ export function createEmailOtpService(
     try {
       await sender.send({ to: normalized, code, ttlSeconds: cfg.ttlSeconds });
     } catch (cause) {
-      // Clean up the stored code since the email was never delivered.
-      try { await store.consume(key); } catch { /* best-effort */ }
+      // Leave the stored code in place (it self-evicts via the native TTL passed
+      // to store.set) — do NOT delete it here. sender.send is not atomic: the
+      // email may already be delivered when send() rejects (post-accept timeout /
+      // connection drop), and a blind keyed consume would (a) make a delivered
+      // code permanently unverifiable, (b) clobber a concurrent startOtp's record
+      // (consume is a keyed delete, not compare-and-delete), and (c) drop the
+      // resend-throttle state, enabling un-throttled retries. The code is stored
+      // but possibly undeliverable — surface the fault rather than reporting sent
+      // for an email that never went out.
       throw new AuthKitError(
         "email_send_failure",
         "EmailSender.send failed while starting an OTP",

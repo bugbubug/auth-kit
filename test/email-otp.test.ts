@@ -19,10 +19,18 @@ import { describe, expect, it } from "vitest";
 import { createEmailOtpService } from "../src/email-otp.js";
 import { sha256Hex } from "../src/crypto.js";
 import { EMAIL_OTP_DEFAULTS } from "../src/config.js";
+import { AuthKitError } from "../src/types.js";
 import { otpKey } from "../src/util.js";
 import { InMemoryOtpStore } from "../src/adapters/memory-otp-store.js";
 import { RecordingEmailSender } from "../src/adapters/noop-email-sender.js";
-import type { Clock, CodeGenerator, OtpRecord, OtpStore } from "../src/ports.js";
+import type {
+  Clock,
+  CodeGenerator,
+  EmailSender,
+  OtpEmail,
+  OtpRecord,
+  OtpStore,
+} from "../src/ports.js";
 
 // ── Test doubles ─────────────────────────────────────────────────────────────
 
@@ -73,6 +81,17 @@ class TtlLessOtpStore implements OtpStore {
   }
   async consume(key: string): Promise<void> {
     this.map.delete(key);
+  }
+}
+
+/**
+ * An EmailSender that always rejects — models a delivery adapter fault (or a
+ * post-accept timeout where the mail may already be on its way). Lets us prove
+ * startOtp surfaces email_send_failure WITHOUT tearing down the stored record.
+ */
+class ThrowingEmailSender implements EmailSender {
+  async send(_email: OtpEmail): Promise<void> {
+    throw new Error("smtp down");
   }
 }
 
@@ -208,6 +227,44 @@ describe("Email OTP — startOtp", () => {
     // The plaintext code appears nowhere in the serialized record.
     expect(JSON.stringify(record)).not.toContain(KNOWN_CODE);
     expect(record.attempts).toBe(0);
+  });
+
+  it("on send failure throws email_send_failure but LEAVES the record so the (possibly delivered) code still verifies", async () => {
+    // sender.send is not atomic: the email may already be delivered when send()
+    // rejects. We must NOT consume the stored code — deleting it would make a
+    // delivered code permanently unverifiable. Prove: startOtp rejects with
+    // AuthKitError("email_send_failure"), yet the record survives and the known
+    // code verifies afterward.
+    const clock = new FixedClock(START_MS);
+    const store = new InMemoryOtpStore(clock);
+    const sender = new ThrowingEmailSender();
+    const codeGen = new FixedCodeGenerator(KNOWN_CODE);
+    const service = createEmailOtpService({ store, sender, codeGen, clock });
+
+    // Capture the thrown fault ONCE (a second startOtp would be throttled by the
+    // record this one stored, so assert both shape facts on the single throw).
+    let caught: unknown;
+    try {
+      await service.startOtp("user@example.com");
+    } catch (e) {
+      caught = e;
+    }
+    // It is specifically an AuthKitError (adapter fault), not a bare Error...
+    expect(caught).toBeInstanceOf(AuthKitError);
+    // ...with the email_send_failure code.
+    expect((caught as AuthKitError).code).toBe("email_send_failure");
+
+    // The record was NOT consumed: it is still present in the store...
+    const record = await store.get(otpKey("user@example.com"));
+    expect(record).not.toBeNull();
+    expect(record?.codeHash).toBe(await sha256Hex(KNOWN_CODE));
+
+    // ...and the known code still verifies, proving a delivered-but-faulted send
+    // does not strand the user.
+    const ok = await service.verifyOtp("user@example.com", KNOWN_CODE);
+    expect(ok.ok).toBe(true);
+    if (!ok.ok) throw new Error("unreachable");
+    expect(ok.identity.email).toBe("user@example.com");
   });
 });
 
