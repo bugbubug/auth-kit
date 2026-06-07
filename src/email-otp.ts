@@ -144,8 +144,8 @@ export function createEmailOtpService(
     try {
       await sender.send({ to: normalized, code, ttlSeconds: cfg.ttlSeconds });
     } catch (cause) {
-      // The code is stored but undeliverable — surface the fault rather than
-      // reporting "sent" for an email that never went out.
+      // Clean up the stored code since the email was never delivered.
+      try { await store.consume(key); } catch { /* best-effort */ }
       throw new AuthKitError(
         "email_send_failure",
         "EmailSender.send failed while starting an OTP",

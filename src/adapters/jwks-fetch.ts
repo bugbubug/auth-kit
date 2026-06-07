@@ -67,17 +67,22 @@ export class FetchJwksSource implements JwksSource {
 
   private async refresh(): Promise<{ keys: Jwk[] }> {
     let response: Response;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     try {
       response = await fetch(this.url, {
         headers: { accept: "application/json" },
+        signal: controller.signal,
       });
     } catch (cause) {
+      clearTimeout(timeoutId);
       throw new AuthKitError(
         "jwks_failure",
         `Failed to fetch JWKS from ${this.url}`,
         { cause },
       );
     }
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new AuthKitError(

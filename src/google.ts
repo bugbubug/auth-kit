@@ -79,7 +79,7 @@ export function createGoogleVerifier(
         { cause },
       );
     }
-    const localJwks = createLocalJWKSet(keySet as unknown as JSONWebKeySet);
+    const localJwks = createLocalJWKSet(keySet as JSONWebKeySet);
 
     // 3. Verify signature + iss/aud/exp via jose against the LOCAL set. The
     //    Clock drives expiry: `currentDate` defaults to new Date() in jose, so

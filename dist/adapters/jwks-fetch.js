@@ -45,14 +45,19 @@ export class FetchJwksSource {
     }
     async refresh() {
         let response;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
         try {
             response = await fetch(this.url, {
                 headers: { accept: "application/json" },
+                signal: controller.signal,
             });
         }
         catch (cause) {
+            clearTimeout(timeoutId);
             throw new AuthKitError("jwks_failure", `Failed to fetch JWKS from ${this.url}`, { cause });
         }
+        clearTimeout(timeoutId);
         if (!response.ok) {
             throw new AuthKitError("jwks_failure", `JWKS endpoint ${this.url} returned HTTP ${response.status}`);
         }
