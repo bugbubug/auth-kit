@@ -90,6 +90,9 @@ export interface GoogleVerifierDeps {
 }
 
 // @public
+export function hashPassword(password: string, config?: PasswordHashConfig): Promise<string>;
+
+// @public
 export interface Jwk {
     // (undocumented)
     [claim: string]: unknown;
@@ -144,6 +147,16 @@ export interface OtpStore {
 }
 
 // @public
+export const PASSWORD_HASH_DEFAULTS: Required<PasswordHashConfig>;
+
+// @public
+export interface PasswordHashConfig {
+    iterations?: number;
+    keyBytes?: number;
+    saltBytes?: number;
+}
+
+// @public
 export type StartOtpResult = {
     status: "sent";
     expiresAt: number;
@@ -181,6 +194,9 @@ export type VerifyOtpResult = {
     ok: false;
     reason: OtpFailureReason;
 };
+
+// @public
+export function verifyPassword(password: string, stored: string): Promise<boolean>;
 
 // (No @packageDocumentation comment for this package)
 

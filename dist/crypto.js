@@ -78,4 +78,116 @@ export const defaultCodeGenerator = {
         return digits.join("");
     },
 };
+/**
+ * The applied (no-undefined) password-hash config. The default `iterations`
+ * (600000) is the OWASP 2023 floor for PBKDF2-HMAC-SHA256.
+ */
+export const PASSWORD_HASH_DEFAULTS = {
+    iterations: 600_000,
+    saltBytes: 16,
+    keyBytes: 32,
+};
+/** Lowercase-hex encode a byte array (no index access; iterates values). */
+function bytesToHex(bytes) {
+    let hex = "";
+    for (const byte of bytes) {
+        hex += byte.toString(16).padStart(2, "0");
+    }
+    return hex;
+}
+/**
+ * Decode an even-length lowercase-hex string to bytes. Returns null on any
+ * malformed input (odd length, or a non-hex character) so callers can fail
+ * closed instead of throwing.
+ */
+function hexToBytes(hex) {
+    if (hex.length % 2 !== 0)
+        return null;
+    const out = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < out.length; i++) {
+        const byte = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+        if (Number.isNaN(byte))
+            return null;
+        out[i] = byte;
+    }
+    return out;
+}
+/** Derive `keyBytes` bytes from a password + salt via PBKDF2-HMAC-SHA256. */
+async function deriveBitsHex(password, salt, iterations, keyBytes) {
+    const passwordBytes = new TextEncoder().encode(password);
+    const key = await globalThis.crypto.subtle.importKey("raw", passwordBytes, "PBKDF2", false, ["deriveBits"]);
+    const bits = await globalThis.crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations, hash: "SHA-256" }, key, keyBytes * 8);
+    return bytesToHex(new Uint8Array(bits));
+}
+/**
+ * Hash a password with PBKDF2-HMAC-SHA256, returning a SELF-DESCRIBING string:
+ * `pbkdf2-sha256$<iterations>$<saltHex>$<hashHex>` (lowercase hex). A fresh
+ * random salt is drawn per call, so two hashes of the same password differ.
+ *
+ * Throws `RangeError` for programmer misuse — a non-string/empty password or a
+ * non-positive-integer config value — consistent with `defaultCodeGenerator`.
+ */
+export async function hashPassword(password, config) {
+    if (typeof password !== "string" || password.length === 0) {
+        throw new RangeError("hashPassword: password must be a non-empty string");
+    }
+    const iterations = config?.iterations ?? PASSWORD_HASH_DEFAULTS.iterations;
+    const saltBytes = config?.saltBytes ?? PASSWORD_HASH_DEFAULTS.saltBytes;
+    const keyBytes = config?.keyBytes ?? PASSWORD_HASH_DEFAULTS.keyBytes;
+    for (const [name, value] of [
+        ["iterations", iterations],
+        ["saltBytes", saltBytes],
+        ["keyBytes", keyBytes],
+    ]) {
+        if (!Number.isInteger(value) || value <= 0) {
+            throw new RangeError(`hashPassword: ${name} must be a positive integer, got ${String(value)}`);
+        }
+    }
+    const salt = new Uint8Array(saltBytes);
+    globalThis.crypto.getRandomValues(salt);
+    const hashHex = await deriveBitsHex(password, salt, iterations, keyBytes);
+    return `pbkdf2-sha256$${iterations}$${bytesToHex(salt)}$${hashHex}`;
+}
+/**
+ * Verify a password against a `stored` hash produced by `hashPassword`. Re-derives
+ * with the salt + iteration count parsed FROM the stored string (so a hash made
+ * with non-default iterations still verifies), and compares constant-time via
+ * `constantTimeEqualHex`.
+ *
+ * NEVER throws: returns `false` on any malformed `stored` string or any failed
+ * derivation, so a corrupt/legacy value can't crash the login path.
+ */
+export async function verifyPassword(password, stored) {
+    if (typeof password !== "string" || typeof stored !== "string")
+        return false;
+    const parts = stored.split("$");
+    if (parts.length !== 4)
+        return false;
+    const [scheme, iterationsRaw, saltHex, hashHex] = parts;
+    // Under noUncheckedIndexedAccess each part is `string | undefined`; guard each.
+    if (!scheme || !iterationsRaw || !saltHex || !hashHex)
+        return false;
+    if (scheme !== "pbkdf2-sha256")
+        return false;
+    if (!/^[1-9][0-9]*$/.test(iterationsRaw))
+        return false;
+    const iterations = Number.parseInt(iterationsRaw, 10);
+    if (!Number.isInteger(iterations) || iterations <= 0)
+        return false;
+    if (!/^[0-9a-f]+$/.test(saltHex) || saltHex.length % 2 !== 0)
+        return false;
+    if (!/^[0-9a-f]+$/.test(hashHex) || hashHex.length % 2 !== 0)
+        return false;
+    const salt = hexToBytes(saltHex);
+    if (salt === null)
+        return false;
+    const keyBytes = hashHex.length / 2;
+    try {
+        const actualHex = await deriveBitsHex(password, salt, iterations, keyBytes);
+        return constantTimeEqualHex(actualHex, hashHex);
+    }
+    catch {
+        return false;
+    }
+}
 //# sourceMappingURL=crypto.js.map

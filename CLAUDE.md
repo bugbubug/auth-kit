@@ -19,6 +19,14 @@ It runs **in-process** in the consumer's Worker. The consumer (emo) owns identit
 the unique index, the session cookie, and register-vs-login policy. The kit's job
 ends at `VerifiedIdentity`.
 
+**v1.1.0 (additive):** added pure password-hashing **PRIMITIVES** —
+`hashPassword` / `verifyPassword` (PBKDF2-HMAC-SHA256, self-describing
+`pbkdf2-sha256$<iters>$<saltHex>$<hashHex>`) + `PASSWORD_HASH_DEFAULTS` /
+`PasswordHashConfig`, in `src/crypto.ts`. Same "verify only" boundary: the kit
+hashes/verifies a password but **storage + orchestration** (the users row,
+register/login/reset flow, throttling) stay in the consumer. Pure WebCrypto, no
+new deps.
+
 ## Layout (hexagonal)
 
 ```

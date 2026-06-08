@@ -23,4 +23,6 @@ export type { GoogleVerifierDeps, GoogleVerifier, } from "./google.js";
 export { createGoogleVerifier } from "./google.js";
 export { defaultCodeGenerator } from "./crypto.js";
 export { systemClock, normalizeEmail } from "./util.js";
+export type { PasswordHashConfig } from "./crypto.js";
+export { hashPassword, verifyPassword, PASSWORD_HASH_DEFAULTS, } from "./crypto.js";
 //# sourceMappingURL=index.d.ts.map

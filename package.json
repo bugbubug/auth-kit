@@ -1,6 +1,6 @@
 {
   "name": "@bugbubug/auth-kit",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "Pure, hexagonal, framework-agnostic auth verification (Email OTP + Google id_token) — verifies control of an identifier and returns a single VerifiedIdentity. No users/sessions/cookies.",
   "license": "MIT",
   "author": "bugbubug",

@@ -19,4 +19,5 @@ export { createGoogleVerifier } from "./google.js";
 // ── Built-in helpers (re-exported defaults; optional use) ────────────────────
 export { defaultCodeGenerator } from "./crypto.js";
 export { systemClock, normalizeEmail } from "./util.js";
+export { hashPassword, verifyPassword, PASSWORD_HASH_DEFAULTS, } from "./crypto.js";
 //# sourceMappingURL=index.js.map

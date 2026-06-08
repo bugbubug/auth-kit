@@ -29,4 +29,37 @@ export declare function constantTimeEqualHex(a: string, b: string): boolean;
  * is refilled on exhaustion, so the loop terminates with probability 1.
  */
 export declare const defaultCodeGenerator: CodeGenerator;
+/** PBKDF2-HMAC-SHA256 tunables. All optional; defaults match the locked spec. */
+export interface PasswordHashConfig {
+    /** PBKDF2 iteration count. Default 600000 (OWASP 2023 floor). */
+    iterations?: number;
+    /** Random salt length in bytes. Default 16. */
+    saltBytes?: number;
+    /** Derived key length in bytes. Default 32. */
+    keyBytes?: number;
+}
+/**
+ * The applied (no-undefined) password-hash config. The default `iterations`
+ * (600000) is the OWASP 2023 floor for PBKDF2-HMAC-SHA256.
+ */
+export declare const PASSWORD_HASH_DEFAULTS: Required<PasswordHashConfig>;
+/**
+ * Hash a password with PBKDF2-HMAC-SHA256, returning a SELF-DESCRIBING string:
+ * `pbkdf2-sha256$<iterations>$<saltHex>$<hashHex>` (lowercase hex). A fresh
+ * random salt is drawn per call, so two hashes of the same password differ.
+ *
+ * Throws `RangeError` for programmer misuse — a non-string/empty password or a
+ * non-positive-integer config value — consistent with `defaultCodeGenerator`.
+ */
+export declare function hashPassword(password: string, config?: PasswordHashConfig): Promise<string>;
+/**
+ * Verify a password against a `stored` hash produced by `hashPassword`. Re-derives
+ * with the salt + iteration count parsed FROM the stored string (so a hash made
+ * with non-default iterations still verifies), and compares constant-time via
+ * `constantTimeEqualHex`.
+ *
+ * NEVER throws: returns `false` on any malformed `stored` string or any failed
+ * derivation, so a corrupt/legacy value can't crash the login path.
+ */
+export declare function verifyPassword(password: string, stored: string): Promise<boolean>;
 //# sourceMappingURL=crypto.d.ts.map

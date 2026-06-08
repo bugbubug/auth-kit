@@ -58,3 +58,12 @@ export { createGoogleVerifier } from "./google.js";
 // ── Built-in helpers (re-exported defaults; optional use) ────────────────────
 export { defaultCodeGenerator } from "./crypto.js";
 export { systemClock, normalizeEmail } from "./util.js";
+
+// ── Password hashing PRIMITIVES (pure PBKDF2-HMAC-SHA256; storage stays in the
+//    consumer — the kit never owns the users row, same boundary as OTP/Google) ─
+export type { PasswordHashConfig } from "./crypto.js";
+export {
+  hashPassword,
+  verifyPassword,
+  PASSWORD_HASH_DEFAULTS,
+} from "./crypto.js";
