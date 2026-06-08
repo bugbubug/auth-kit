@@ -3,3 +3,7 @@ coverage
 *.log
 .dev.vars
 .DS_Store
+
+# api-extractor scratch output (the authoritative report lives in etc/, this is
+# regenerated on every `api:check`/`api:update` run and must not be committed).
+temp/

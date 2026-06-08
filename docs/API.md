@@ -1,9 +1,11 @@
 # API reference — @bugbubug/auth-kit (v1)
 
-The authoritative surface is [`FROZEN_CONTRACT.ts`](./FROZEN_CONTRACT.ts), mirrored
-verbatim by `src/index.ts`. This document describes every export with its
-semantics. The contract is **additive-only**; nothing here is removed or retyped
-without a new major tag.
+The authoritative surface is the api-extractor report
+[`etc/auth-kit.api.md`](../etc/auth-kit.api.md), generated from `dist/index.d.ts`
+and verified in CI by `bun run api:check` (it replaced the old hand-mirrored
+`FROZEN_CONTRACT.ts`). `src/index.ts` is the barrel that produces it. This document
+describes every export with its semantics. The contract is **additive-only**;
+nothing here is removed or retyped without a new major tag.
 
 All exports are imported from the package root:
 

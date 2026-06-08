@@ -3,6 +3,11 @@
 Agent index for this repo. Read this first; it points at the contract and the
 hard rules, it does not restate the whole API (that's `docs/API.md`).
 
+The SDK's **own** toolchain is **bun** (`bun install` / `bun test` /
+`bun run build` / `bun run typecheck` / `bun run lint` / `bun run api:check`).
+The **consumer-facing** install line stays **pnpm** (`pnpm add github:...#tag`) —
+emo/habibi are pnpm workspaces.
+
 ## What this is
 
 A **pure, hexagonal auth-VERIFICATION library**. It proves a caller controls an
@@ -18,7 +23,7 @@ ends at `VerifiedIdentity`.
 
 ```
 src/
-  index.ts          FROZEN public barrel — IS the contract surface (== docs/FROZEN_CONTRACT.ts)
+  index.ts          FROZEN public barrel — IS the contract surface (frozen baseline: etc/auth-kit.api.md)
   types.ts          VerifiedIdentity, result/reason unions, AuthKitError (no logic)
   ports.ts          port interfaces: OtpStore/OtpRecord, EmailSender/OtpEmail, JwksSource/Jwk, Clock, CodeGenerator
   config.ts         EmailOtpConfig/GoogleVerifierConfig, defaults, validators (applyEmailDefaults/validateGoogleConfig)
@@ -29,8 +34,12 @@ src/
   zod.ts            OPTIONAL non-frozen "@bugbubug/auth-kit/zod" subpath (imports zod peer)
   adapters/         OPTIONAL GENERIC adapters: FetchJwksSource, StaticJwksSource,
                     InMemoryOtpStore, NoopEmailSender, RecordingEmailSender
-test/               vitest: email-otp, google (real keypair via jose), contract seam
-docs/               FROZEN_CONTRACT.ts (authoritative), BUILD_PLAN.md, OPEN_RISKS.md, API.md
+test/               bun test: email-otp, google (real keypair via jose), contract seam;
+                    zod-mirror.type-test.ts (typecheck-only drift guard, not a runtime test)
+etc/                auth-kit.api.md — AUTHORITATIVE frozen surface (api-extractor report)
+docs/               BUILD_PLAN.md, OPEN_RISKS.md, API.md
+eslint.config.js    import-boundary enforcement (no zod/node:*/hono/workers-types in src/**)
+api-extractor.json  config for the frozen-surface report (etc/auth-kit.api.md)
 ```
 
 - **`src/` core is framework-agnostic** — the deterministic flow, no runtime
@@ -44,15 +53,53 @@ docs/               FROZEN_CONTRACT.ts (authoritative), BUILD_PLAN.md, OPEN_RISK
 
 ## The frozen contract
 
-`src/index.ts` **is** the public surface and **must equal** `docs/FROZEN_CONTRACT.ts`.
+`src/index.ts` **is** the public surface. The **authoritative frozen baseline** is
+`etc/auth-kit.api.md`, generated from `dist/index.d.ts` by
+[@microsoft/api-extractor](https://api-extractor.com/) (it replaced the old
+hand-mirrored `docs/FROZEN_CONTRACT.ts`). `bun run api:check` fails CI if the
+current `.d.ts` drifts from that report; regenerate it deliberately with
+`bun run api:update` after an **additive** change.
+
 Changes are **additive-only**: new optional fields / new exports are fine; renaming,
 removing, retyping, or making a field required is breaking. Consumers pin by
 immutable git tag, so any change ships as a new tag (never force-move a tag).
 
+> Strict order when the surface legitimately grows: edit `src` →
+> `bun run build` (regenerates `dist/index.d.ts`) → `bun run api:update` (re-reads
+> the fresh `.d.ts`). Running `api:update` against a stale `dist/` would freeze a
+> wrong baseline.
+
+**`exactOptionalPropertyTypes` trap:** under this strict flag, widening an optional
+frozen field from `displayName?: string` to `displayName?: string | undefined` is a
+**retype = breaking change**. When an optional value may be absent, **omit the key**
+at the construction site instead of assigning `undefined` (see `google.ts` building
+`VerifiedIdentity`). Never relax a frozen interface to satisfy the compiler.
+
+### types.ts ↔ zod.ts drift guard
+
+`test/zod-mirror.type-test.ts` is a **typecheck-only** file (emits no runtime code,
+both imports are `import type`, so zod never enters the runtime graph). It pins each
+`@bugbubug/auth-kit/zod` schema's inferred type against the engine **method-input**
+shape it mirrors — `emailStartInput`↔`{email}`, `otpVerifyInput`↔`{email,code}`,
+`googleVerifyInput`↔`{idToken}` — via a compile-time `Equals<A,B>`. If a schema
+gains/loses/retypes a field, `bun run typecheck` FAILS.
+
+> Caveat (intentionally weaker than llm-kit's guard): auth-kit has **no
+> zod-shadowed IR types** in `src/types.ts`, so there is no `z.infer EQUALS
+> frozen-IR-type` assertion to make. The /zod schemas mirror method inputs, so the
+> guard pins those literal shapes instead.
+
 ## Hard rules (do not violate)
 
 1. **No Workers / Hono / Node imports in the core.** Pure WebCrypto + `jose`
-   only, so it runs in Workers, vitest-pool-workers, and Node 24 unchanged.
+   only, so it runs in Workers, Node 24, and bun unchanged. This **portability**
+   rule applies to `node:*` / `hono` / `@cloudflare/workers-types` (runtime- or
+   bundler-specific) — **not** to zod (zod is pure JS and runs everywhere; it is
+   kept off the core graph for the different reasons in rule #7). The import-graph
+   ban is now enforced by **ESLint** (`eslint.config.js`, `no-restricted-imports`
+   under `src/**`, exempting `src/adapters/**` + `src/zod.ts`) — a cheap,
+   CI-decidable proxy for "minimal third-party runtime import graph". `jose` is an
+   allowed runtime dep (used only in `src/google.ts`). Run `bun run lint`.
 2. **Expected outcomes are discriminated unions, NOT throws.** `StartOtpResult`,
    `VerifyOtpResult`, `VerifyGoogleResult` carry every caller-recoverable outcome
    (`sent`/`throttled`, `expired`/`mismatch`/`locked`/`not_found`, the Google
@@ -66,22 +113,48 @@ immutable git tag, so any change ships as a new tag (never force-move a tag).
    live codes.
 5. **Egress ONLY via `FetchJwksSource` + a real `EmailSender`.** The core makes
    no network calls. Dev/test inject `StaticJwksSource` + `NoopEmailSender`/
-   `RecordingEmailSender` → zero egress.
+   `RecordingEmailSender` → zero egress. `FetchJwksSource` arms a 5s
+   `AbortController` timeout that stays armed across **both** the `fetch` and the
+   response-body read (v1.0.2/v1.0.3), so a stalled JWKS endpoint can't hang the
+   verify path; it still raises the three distinct `jwks_failure` messages
+   (network / non-2xx / invalid-JSON).
 6. **Google verify goes through the `JwksSource` PORT** — fetch keys, then verify
    with `jose`'s low-level API. **Never** `jose.createRemoteJWKSet` (that would
    make the core fetch the network directly and bypass the port / the zero-egress
    guarantee).
-7. **`zod` is an optional peer**, pinned `^3.24.1` to match emo, used only in the
-   non-frozen `/zod` subpath. The frozen core never imports it, so a consumer's
-   zod minor skew can't break the engine.
+7. **`zod` is an optional peer**, pinned `^3.24.1`, used only in the non-frozen
+   off-barrel `/zod` subpath; the frozen core never imports it. The reason is
+   **not** purity/portability (zod is pure JS — it runs unchanged on
+   workerd/Node/bun). The real reasons:
+   - **opt-in / zero-bytes-by-default + zero skew** — zod is reached only via the
+     `@bugbubug/auth-kit/zod` off-barrel subpath, so a consumer who doesn't import
+     it ships zero zod bytes in their bundled Worker, and the engine never resolves
+     the consumer's zod version (no version-skew breakage in core);
+   - **no validator types in the frozen `.d.ts`** — the frozen `dist/index.d.ts`
+     leaks no zod/schema types, keeping the surface pure data types;
+   - **lenient wire handling** — the verifiers return typed reason unions and never
+     `.parse()`; a strict schema at the core boundary would regress that leniency
+     and collapse the distinct typed reasons;
+   - **v3 surface for consumer type-identity** — the `/zod` IR mirror stays on the
+     zod v3 surface so a consumer pinned to v3 (emo) keeps schema type-identity.
+8. **On email-send failure, LEAVE the stored (hashed) OTP in place** — it
+   self-evicts via the native store TTL — and surface
+   `AuthKitError("email_send_failure")`. Do **NOT** delete/consume the record on
+   the send-failure path (tried in v1.0.2, **reverted in v1.0.3**): `sender.send`
+   is not atomic, so the email may already be delivered when `send()` rejects, and
+   a blind keyed delete would (a) make a delivered code permanently unverifiable,
+   (b) clobber a concurrent `startOtp`'s record (consume is a keyed delete, not
+   compare-and-delete), and (c) drop the resend-throttle state, enabling
+   un-throttled retries.
 
 ## How a consumer wires it
 
-The consumer installs by **git tag** (`pnpm add github:bugbubug/auth-kit#v1.0.1`)
+The consumer installs by **git tag** (`pnpm add github:bugbubug/auth-kit#v1.0.4`)
 and consumes the committed **`dist/` (ESM `.js` + `.d.ts`)** — its `tsc` reads the
 shipped `.d.ts` (so the kit's tsconfig strictness never leaks into the consumer's
 typecheck), its bundler (wrangler/esbuild) bundles the `.js`. Rebuild `dist` with
-`pnpm build` before tagging a release. `jose` rides along as the kit's transitive dep. The consumer
+the kit's own toolchain — `bun run build` — before tagging a release. `jose` rides
+along as the kit's transitive dep. The consumer
 writes the CF adapters (`KvOtpStore`, `CfEmailSender`), re-uses `FetchJwksSource`,
 calls `createEmailOtpService` / `createGoogleVerifier`, and maps the result onto
 its own identity layer:
@@ -104,9 +177,20 @@ function toIdentityResult(id: VerifiedIdentity): IdentityResult {
   *before* mapping if account-linking policy needs it).
 - `displayName` is present for Google (`name` claim), absent for Email OTP.
 
-## Test commands
+## Test / gate commands (the SDK's own toolchain — bun)
 
 ```bash
-pnpm test        # vitest: OTP flow + Google verify (real jose keypair) + contract seam, zero egress
-pnpm typecheck   # tsc --noEmit against the strict config
+bun install         # produces/uses bun.lock (committed); reads bunfig.toml (linker=isolated)
+bun test            # OTP flow + Google verify (real jose keypair) + contract seam, zero egress
+bun run typecheck   # tsc --noEmit against the strict config (also typechecks the zod-mirror drift guard)
+bun run lint        # eslint . — import-boundary enforcement
+bun run api:check   # api-extractor — fails if dist/index.d.ts drifts from etc/auth-kit.api.md
+bun run build       # tsc -p tsconfig.build.json — regenerates dist/ (.js + .d.ts) before tagging/api:update
 ```
+
+`bunfig.toml` sets `[install] linker = "isolated"` (pnpm-style nested deps) so
+api-extractor's `ajv-draft-04` resolves its own `ajv@8` instead of colliding with
+eslint's `ajv@6` under bun's default hoisted layout — required for `api:check`.
+
+> The `pnpm add github:...#tag` install line above is **consumer-facing** (emo is a
+> pnpm workspace); only the SDK's **own** dev/test/build is bun.

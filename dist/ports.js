@@ -1,6 +1,6 @@
 /**
  * PORTS — the consumer injects an adapter for each. Adapters MAY be CF-specific;
- * the core never knows. Verbatim shapes from docs/FROZEN_CONTRACT.ts (section 3).
+ * the core never knows. Frozen baseline: etc/auth-kit.api.md (the port shapes).
  *
  * No implementations live here — only the interfaces the hexagonal core depends
  * on. Built-in default impls (defaultCodeGenerator, systemClock) live in

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/api-extractor/v7/api-extractor.schema.json",
+
+  "mainEntryPointFilePath": "<projectFolder>/dist/index.d.ts",
+
+  "apiReport": {
+    "enabled": true,
+    "reportFolder": "<projectFolder>/etc/",
+    "reportFileName": "auth-kit.api.md"
+  },
+
+  "docModel": {
+    "enabled": false
+  },
+
+  "dtsRollup": {
+    "enabled": false
+  },
+
+  "tsdocMetadata": {
+    "enabled": false
+  },
+
+  "messages": {
+    "compilerMessageReporting": {
+      "default": {
+        "logLevel": "warning"
+      }
+    },
+    "extractorMessageReporting": {
+      "default": {
+        "logLevel": "warning"
+      },
+      "ae-missing-release-tag": {
+        "logLevel": "none"
+      }
+    },
+    "tsdocMessageReporting": {
+      // The frozen source comments contain illustrative `{ ... }` glue examples
+      // (e.g. the VerifiedIdentity -> emo IdentityResult mapping). Those trip
+      // cosmetic TSDoc brace-escape / inline-tag warnings that have nothing to do
+      // with the API surface. Silence TSDoc parsing diagnostics so `api:check`
+      // fails ONLY on real surface drift (the apiReport mismatch), not on comment
+      // formatting — without editing the frozen doc prose.
+      "default": {
+        "logLevel": "none"
+      }
+    }
+  }
+}

@@ -12,8 +12,10 @@ export async function sha256Hex(input) {
     const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
     const view = new Uint8Array(digest);
     let hex = "";
-    for (let i = 0; i < view.length; i++) {
-        hex += view[i].toString(16).padStart(2, "0");
+    // Iterate values (not indices) so each `byte` is a plain `number` from the
+    // Uint8Array iterator — no index access, no noUncheckedIndexedAccess narrowing.
+    for (const byte of view) {
+        hex += byte.toString(16).padStart(2, "0");
     }
     return hex;
 }
@@ -63,6 +65,11 @@ export const defaultCodeGenerator = {
                 cursor = 0;
             }
             const byte = pool[cursor++];
+            // The refill guard above guarantees `cursor` is in-bounds when read, so
+            // this never triggers; the explicit guard narrows `number | undefined` to
+            // `number` without a non-null assertion (and costs nothing at runtime).
+            if (byte === undefined)
+                continue;
             if (byte < limit) {
                 digits.push(byte % 10);
             }

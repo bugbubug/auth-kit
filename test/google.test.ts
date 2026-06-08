@@ -14,7 +14,7 @@
  * and malformed ('not.a.jwt').
  */
 
-import { describe, expect, it, beforeAll } from "vitest";
+import { describe, expect, it, beforeAll } from "bun:test";
 import {
   generateKeyPair,
   exportJWK,
@@ -27,6 +27,7 @@ import {
 
 import { createGoogleVerifier } from "../src/google.js";
 import { StaticJwksSource } from "../src/adapters/static-jwks.js";
+import type { GoogleVerifierConfig } from "../src/config.js";
 import type { Clock, Jwk } from "../src/ports.js";
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -66,13 +67,16 @@ function buildVerifier(overrides?: {
   allowedIssuers?: string[];
 }) {
   const jwks = new StaticJwksSource([publicJwk]);
-  return createGoogleVerifier(
-    { jwks, clock: fixedClock },
-    {
-      allowedAudiences: overrides?.allowedAudiences ?? [AUDIENCE],
-      allowedIssuers: overrides?.allowedIssuers,
-    },
-  );
+  // Build the config conditionally so `allowedIssuers` is only present when
+  // actually provided — under exactOptionalPropertyTypes an explicit
+  // `allowedIssuers: undefined` is not assignable to `allowedIssuers?: string[]`.
+  const cfg: GoogleVerifierConfig = {
+    allowedAudiences: overrides?.allowedAudiences ?? [AUDIENCE],
+  };
+  if (overrides?.allowedIssuers) {
+    cfg.allowedIssuers = overrides.allowedIssuers;
+  }
+  return createGoogleVerifier({ jwks, clock: fixedClock }, cfg);
 }
 
 interface ClaimOverrides {

@@ -14,7 +14,7 @@
  * hash-not-plaintext store invariant (sha-256 hex, never the code).
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { createEmailOtpService } from "../src/email-otp.js";
 import { sha256Hex } from "../src/crypto.js";
@@ -124,6 +124,7 @@ describe("Email OTP — startOtp", () => {
     // plaintext code (correct length) and the ttl for copy.
     expect(sender.sent).toHaveLength(1);
     const sent = sender.sent[0];
+    if (!sent) throw new Error("unreachable");
     expect(sent.to).toBe("user@example.com");
     expect(sent.code).toBe(KNOWN_CODE);
     expect(sent.code).toHaveLength(EMAIL_OTP_DEFAULTS.length);

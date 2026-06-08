@@ -1,0 +1,13 @@
+# Bun configuration for @bugbubug/auth-kit.
+#
+# `linker = "isolated"` (pnpm-style symlinked node_modules) is REQUIRED, not a
+# preference: the default "hoisted" linker collapses two incompatible majors of
+# `ajv` (eslint depends on ajv@6, api-extractor's `ajv-draft-04` needs ajv@8) onto
+# a single top-level ajv@6, so `ajv-draft-04` fails to resolve `ajv/dist/core` and
+# `bun run api:check`/`api:update` crash. The isolated linker gives each package
+# its correct nested dependency, fixing the resolution without forcing a global
+# `overrides` (bun does not support scoped/nested overrides). It does not change
+# the committed dist/ or the runtime import graph — it only affects how dev
+# dependencies are laid out under node_modules.
+[install]
+linker = "isolated"

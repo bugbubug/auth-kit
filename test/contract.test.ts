@@ -11,7 +11,7 @@
  *     profile: { email?: string; displayName?: string };
  *   }
  *
- * and the verbatim mapping from docs/FROZEN_CONTRACT.ts:
+ * and the verbatim mapping documented in docs/API.md (section 8) / CLAUDE.md:
  *
  *   { providerSubject: id.providerSubject,
  *     profile: { email: id.email, displayName: id.displayName } }
@@ -21,18 +21,29 @@
  * maps to the right object).
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import type { VerifiedIdentity } from "../src/types.js";
 
 // ── emo-side shape mirror (verbatim from apps/api/src/auth/identity.ts) ──────
 
-/** emo's IdentityProvider.IdentityResult — the consumer-facing target shape. */
+/**
+ * emo's IdentityProvider.IdentityResult — the consumer-facing target shape.
+ *
+ * The optional profile fields are typed `?: string | undefined` (not bare
+ * `?: string`) so the verbatim emo glue below — which SPREADS both fields
+ * unconditionally (`{ email: id.email, displayName: id.displayName }`) — stays
+ * assignable under exactOptionalPropertyTypes. emo's real `toIdentityResult`
+ * performs the same unconditional spread, so emo's IdentityResult.profile must
+ * (and does) tolerate an explicit `undefined` displayName for the Email-OTP case.
+ * Keeping the glue verbatim is the whole point of this seam test; loosening the
+ * mirror (rather than making the glue conditional) preserves that fidelity.
+ */
 interface IdentityResult {
   providerSubject: string;
   profile: {
-    email?: string;
-    displayName?: string;
+    email?: string | undefined;
+    displayName?: string | undefined;
   };
 }
 

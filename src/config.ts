@@ -1,6 +1,6 @@
 /**
- * CONFIG types + their applied defaults and validators. Verbatim shapes from
- * docs/FROZEN_CONTRACT.ts (section 4); the helpers below are the deterministic
+ * CONFIG types + their applied defaults and validators. Frozen baseline:
+ * etc/auth-kit.api.md (the config shapes); the helpers below are the deterministic
  * default-application / validation logic the engine factories call.
  */
 

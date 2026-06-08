@@ -1,7 +1,8 @@
 /**
  * @bugbubug/auth-kit — FROZEN PUBLIC BARREL (v1).
  *
- * This file IS the frozen contract surface (docs/FROZEN_CONTRACT.ts). Changes
+ * This file IS the frozen contract surface; the authoritative baseline is the
+ * api-extractor report etc/auth-kit.api.md (run `bun run api:check`). Changes
  * here are additive-only. Pure, framework/runtime-agnostic: no Hono / Workers /
  * Node imports. Two methods only — Email OTP and Google id_token verification —
  * each returning a single VerifiedIdentity. The SDK ONLY verifies control of an

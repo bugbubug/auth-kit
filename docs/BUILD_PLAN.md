@@ -1,6 +1,8 @@
 # Build plan — @bugbubug/auth-kit (v1)
 
-Authoritative public API surface: `docs/FROZEN_CONTRACT.ts`.
+Authoritative public API surface: `etc/auth-kit.api.md` (api-extractor report,
+generated from `dist/index.d.ts`, verified by `bun run api:check`). It replaced the
+hand-mirrored `docs/FROZEN_CONTRACT.ts`.
 
 ## SDK file plan
 

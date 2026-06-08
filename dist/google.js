@@ -94,17 +94,18 @@ export function createGoogleVerifier(deps, config) {
         }
         // 5. Project the VerifiedIdentity. providerSubject is the stable `sub`
         //    (NEVER the email), prefixed `google:`; email is normalized; name -> displayName.
-        return {
-            ok: true,
-            identity: {
-                providerSubject: "google:" + payload.sub,
-                email: normalizeEmail(rawEmail),
-                emailVerified: true,
-                displayName: payload.name !== undefined && payload.name !== null
-                    ? String(payload.name)
-                    : undefined,
-            },
+        //    displayName is OMITTED (key absent) when there is no `name` claim rather
+        //    than set to `undefined`, matching the frozen `displayName?: string` shape
+        //    under exactOptionalPropertyTypes (absent for Email OTP / no-name Google).
+        const identity = {
+            providerSubject: "google:" + payload.sub,
+            email: normalizeEmail(rawEmail),
+            emailVerified: true,
         };
+        if (payload.name !== undefined && payload.name !== null) {
+            identity.displayName = String(payload.name);
+        }
+        return { ok: true, identity };
     }
     return { verify };
 }
@@ -126,10 +127,15 @@ function isStructurallyValidJwt(token) {
     const parts = token.split(".");
     if (parts.length !== 3)
         return false;
-    if (parts[0] === "" || parts[1] === "" || parts[2] === "")
+    // Destructure once and reject any empty segment with a single falsy guard.
+    // This both dedups the three empty-string checks AND narrows each segment from
+    // `string | undefined` (split element under noUncheckedIndexedAccess) to
+    // `string`; '' is falsy, so empty segments are still rejected exactly as before.
+    const [headerSeg, payloadSeg, sigSeg] = parts;
+    if (!headerSeg || !payloadSeg || !sigSeg)
         return false;
     try {
-        const header = decodeBase64UrlJson(parts[0]);
+        const header = decodeBase64UrlJson(headerSeg);
         if (typeof header !== "object" || header === null)
             return false;
         const alg = header.alg;
