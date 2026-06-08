@@ -8,7 +8,7 @@
  * parse-iterations-from-string invariant (a non-default-iteration hash verifies).
  *
  * Most tests pass {iterations: 1000} for speed; one default-iteration round-trip
- * exercises the real 600000-iteration cost.
+ * exercises the real default (100000-iteration) cost.
  */
 
 import { describe, expect, it } from "bun:test";
@@ -151,7 +151,7 @@ describe("password — verifyPassword", () => {
     expect(await verifyPassword("x".repeat(199), lStored)).toBe(false);
   });
 
-  it("a default-iteration (600000) round-trip still verifies", async () => {
+  it("a default-iteration (100000) round-trip still verifies", async () => {
     // The one real-cost test: prove the defaults are wired and round-trip.
     const stored = await hashPassword(PW);
     expect(stored).toContain(`$${PASSWORD_HASH_DEFAULTS.iterations}$`);

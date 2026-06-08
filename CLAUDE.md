@@ -27,6 +27,15 @@ hashes/verifies a password but **storage + orchestration** (the users row,
 register/login/reset flow, throttling) stay in the consumer. Pure WebCrypto, no
 new deps.
 
+**v1.1.1 (fix):** `PASSWORD_HASH_DEFAULTS.iterations` lowered **600000 → 100000**.
+Cloudflare Workers' WebCrypto hard-caps PBKDF2 at 100000 — `crypto.subtle.deriveBits`
+throws `NotSupportedError: iteration counts above 100000 are not supported` above it,
+so the old 600000 default made `hashPassword` **fatal on workerd** (it threw at
+runtime; the bun/Node test suite never caught it). 100000 is the highest portable
+value that runs unchanged on Workers/Node/bun. Surface unchanged (value-only); old
+hashes still verify (the count is parsed from the stored string), and a Node-only
+consumer can still pass `{ iterations: 600_000 }` explicitly.
+
 ## Layout (hexagonal)
 
 ```

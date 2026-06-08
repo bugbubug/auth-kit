@@ -80,10 +80,16 @@ export const defaultCodeGenerator = {
 };
 /**
  * The applied (no-undefined) password-hash config. The default `iterations`
- * (600000) is the OWASP 2023 floor for PBKDF2-HMAC-SHA256.
+ * (100000) is the MAXIMUM Cloudflare Workers' WebCrypto permits for PBKDF2 —
+ * `crypto.subtle.deriveBits` throws `NotSupportedError: iteration counts above
+ * 100000 are not supported` for anything higher — so this is the highest value that
+ * runs UNCHANGED on Workers, Node, and bun (the kit's portability rule). OWASP
+ * 2023's 600000 floor is unreachable on Workers; a Node-only consumer that wants it
+ * can pass `{ iterations: 600_000 }` explicitly. `verifyPassword` parses the count
+ * back from the self-describing hash string, so changing this never breaks old hashes.
  */
 export const PASSWORD_HASH_DEFAULTS = {
-    iterations: 600_000,
+    iterations: 100_000,
     saltBytes: 16,
     keyBytes: 32,
 };

@@ -237,6 +237,23 @@ Exported as `EMAIL_OTP_DEFAULTS`. Google issuers default to
 `allowedAudiences` is **required and non-empty** — an empty list throws
 `AuthKitError("config_invalid")` at construction (no wildcard audience, ever).
 
+Password hashing (`PASSWORD_HASH_DEFAULTS`, since v1.1.0):
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `iterations` | `100000` | PBKDF2-HMAC-SHA256 work factor |
+| `saltBytes` | `16` | per-hash random salt length |
+| `keyBytes` | `32` | derived key length |
+
+The `iterations` default is `100000` because that is the **maximum Cloudflare
+Workers' WebCrypto allows** for PBKDF2 — `crypto.subtle.deriveBits` throws
+`NotSupportedError: iteration counts above 100000 are not supported` for anything
+higher (this is why the prior `600000` default was fatal on workerd). It is the
+highest value that runs unchanged on Workers, Node, and bun; a Node-only consumer
+can pass a higher `iterations` (e.g. OWASP 2023's `600000`). `verifyPassword` parses
+the count from the stored `pbkdf2-sha256$<iters>$…` string, so any value round-trips
+and changing the default never breaks existing hashes.
+
 ## Versioning
 
 The kit is consumed by **immutable git tag**. The frozen contract — the public
