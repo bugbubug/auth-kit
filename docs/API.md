@@ -7,8 +7,7 @@ and verified in CI by `bun run api:check` (it replaced the old hand-mirrored
 describes every export with its semantics. The contract is **additive-only**;
 nothing here is removed or retyped without a new major tag.
 
-> **v1.2.0-dev (UNRELEASED — committed after v1.1.1, not yet tagged; all
-> additive):** a generic OIDC verifier engine (`createOidcVerifier` +
+> **v1.2.0 (all additive over v1.1.1):** a generic OIDC verifier engine (`createOidcVerifier` +
 > `OidcVerifierDeps`/`OidcVerifier`/`OidcVerifierConfig`/`OidcFailureReason`/
 > `VerifyOidcResult`) that `createGoogleVerifier` is now a thin preset over; an
 > optional `VerifiedIdentity.provider` discriminant (always populated by the
@@ -33,7 +32,7 @@ success payload either method returns.
 ```ts
 interface VerifiedIdentity {
   providerSubject: string;
-  provider?: string;        // v1.2.0-dev (additive)
+  provider?: string;        // v1.2.0 (additive)
   email: string;
   emailVerified: boolean;
   displayName?: string;
@@ -43,7 +42,7 @@ interface VerifiedIdentity {
 | Field | Semantics |
 | --- | --- |
 | `providerSubject` | The provider's stable, opaque subject. **Email OTP:** `email:<normalizedEmail>` (control of the address *is* the id). **Google:** `google:<sub>` — Google's stable `sub` claim, **never** the email. The `<provider>:` prefix is part of the frozen format so the two methods never collide on a bare value. |
-| `provider?` | *(v1.2.0-dev)* The verification method that produced this identity — `"email"` for Email OTP, `"google"` for the Google preset, the configured `subjectPrefix` for a generic OIDC verifier. Matches the `providerSubject` prefix, so consumers no longer need to parse it. Optional in the type (frozen-contract compatibility) but **always populated** by the engines from v1.2. |
+| `provider?` | *(v1.2.0)* The verification method that produced this identity — `"email"` for Email OTP, `"google"` for the Google preset, the configured `subjectPrefix` for a generic OIDC verifier. Matches the `providerSubject` prefix, so consumers no longer need to parse it. Optional in the type (frozen-contract compatibility) but **always populated** by the engines from v1.2. |
 | `email` | The address, **always normalized** (trim + lowercase). For OTP, the verified address; for Google, the `email` claim (present only when `emailVerified` is true). |
 | `emailVerified` | Whether the email is provider-verified. **Email OTP:** always `true` (the inbox was just proven). **Google:** mirrors `email_verified`; the verifier *requires* it true to succeed, so in practice always `true` on success. Surfaced explicitly so the consumer's linking policy reads it rather than re-deriving it. |
 | `displayName?` | Optional human-friendly name (Google `name` claim). **Absent** for Email OTP. |
@@ -107,7 +106,7 @@ type VerifyGoogleResult =
 | `email_unverified` | `email_verified` claim is not true. |
 | `missing_email` | No usable `email` claim present. |
 
-### `OidcFailureReason` / `VerifyOidcResult`  *(v1.2.0-dev)*
+### `OidcFailureReason` / `VerifyOidcResult`  *(v1.2.0)*
 
 ```ts
 type OidcFailureReason = GoogleFailureReason; // identical reason set
@@ -239,7 +238,7 @@ adapter (`src/adapters/`, off the frozen barrel) defaults to Google's
 per `Cache-Control` max-age — **egress happens only here, only when verifying
 for real**. Its whole-operation abort deadline (armed across both the fetch and
 the body read) is configurable via `FetchJwksOptions.timeoutMs`
-(*v1.2.0-dev*; default 5000, a non-positive/non-integer value throws
+(*v1.2.0*; default 5000, a non-positive/non-integer value throws
 `AuthKitError("config_invalid")` at construction). Tests inject a static set
 (zero egress). The verifier selects the key by `kid`. The kit never uses
 `jose.createRemoteJWKSet`; verification always routes through this port.
@@ -291,7 +290,7 @@ const GOOGLE_DEFAULT_ISSUERS: readonly string[]; // ["https://accounts.google.co
 - `allowedIssuers`, **when provided**, must be a non-empty array of non-empty
   strings (same rules). When omitted, `GOOGLE_DEFAULT_ISSUERS` is substituted.
 
-### `OidcVerifierConfig`  *(v1.2.0-dev)*
+### `OidcVerifierConfig`  *(v1.2.0)*
 
 ```ts
 interface OidcVerifierConfig {
@@ -366,12 +365,12 @@ function createGoogleVerifier(deps: GoogleVerifierDeps, config: GoogleVerifierCo
   = `google:<sub>`, `provider: "google"`, normalized email, `displayName` from
   `name`) or a typed `GoogleFailureReason`. Never throws for an expected
   verification failure; a JWKS adapter fault throws `AuthKitError("jwks_failure")`.
-- Since v1.2.0-dev this is a **thin preset over `createOidcVerifier`**:
+- Since v1.2.0 this is a **thin preset over `createOidcVerifier`**:
   `validateGoogleConfig` (issuer defaulting + Google error messages) runs first,
   then delegates with `subjectPrefix: "google"` and the engine defaults
   (RS256, `requireEmailVerified: true`). Behavior is unchanged.
 
-### Generic OIDC id_token  *(v1.2.0-dev)*
+### Generic OIDC id_token  *(v1.2.0)*
 
 ```ts
 interface OidcVerifierDeps {
@@ -440,7 +439,7 @@ function toIdentityResult(id: VerifiedIdentity): IdentityResult {
 
 - `providerSubject` already carries the `email:` / `google:` prefix, so it slots
   straight into emo's `(productId, provider, providerSubject)` unique index.
-  Since v1.2.0-dev `id.provider` carries the same discriminant directly — read
+  Since v1.2.0 `id.provider` carries the same discriminant directly — read
   it instead of parsing the prefix.
 - `email` is already normalized — no further work to match user rows.
 - `emailVerified` is **dropped at this seam** (always `true` on success). Read it

@@ -37,8 +37,7 @@ value that runs unchanged on Workers/Node/bun. Surface unchanged (value-only); o
 hashes still verify (the count is parsed from the stored string), and a Node-only
 consumer can still pass `{ iterations: 600_000 }` explicitly.
 
-**v1.2.0-dev (UNRELEASED — committed after v1.1.1, not yet tagged; all
-ADDITIVE, every pre-existing test passes unchanged):**
+**v1.2.0 (all ADDITIVE over v1.1.1; every pre-existing test passes unchanged):**
 
 1. **Generic OIDC verifier extracted** — `src/oidc.ts` `createOidcVerifier(deps,
    config)` (+ `OidcVerifierDeps`/`OidcVerifier` there, `OidcVerifierConfig` +
@@ -196,7 +195,7 @@ gains/loses/retypes a field, `bun run typecheck` FAILS.
 
 ## How a consumer wires it
 
-The consumer installs by **git tag** (`pnpm add github:bugbubug/auth-kit#v1.0.4`)
+The consumer installs by **git tag** (`pnpm add github:bugbubug/auth-kit#v1.2.0`)
 and consumes the committed **`dist/` (ESM `.js` + `.d.ts`)** — its `tsc` reads the
 shipped `.d.ts` (so the kit's tsconfig strictness never leaks into the consumer's
 typecheck), its bundler (wrangler/esbuild) bundles the `.js`. Rebuild `dist` with
