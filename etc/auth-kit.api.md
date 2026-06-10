@@ -30,6 +30,9 @@ export function createEmailOtpService(deps: EmailOtpDeps, config?: EmailOtpConfi
 // @public (undocumented)
 export function createGoogleVerifier(deps: GoogleVerifierDeps, config: GoogleVerifierConfig): GoogleVerifier;
 
+// @public (undocumented)
+export function createOidcVerifier(deps: OidcVerifierDeps, config: OidcVerifierConfig): OidcVerifier;
+
 // @public
 export const defaultCodeGenerator: CodeGenerator;
 
@@ -121,6 +124,31 @@ export interface JwksSource {
 export function normalizeEmail(raw: string): string;
 
 // @public
+export type OidcFailureReason = GoogleFailureReason;
+
+// @public
+export interface OidcVerifier {
+    verify(idToken: string): Promise<VerifyOidcResult>;
+}
+
+// @public
+export interface OidcVerifierConfig {
+    algorithms?: string[];
+    allowedAudiences: string[];
+    allowedIssuers: string[];
+    displayNameClaim?: string;
+    requireEmailVerified?: boolean;
+    subjectPrefix: string;
+}
+
+// @public
+export interface OidcVerifierDeps {
+    clock?: Clock;
+    // (undocumented)
+    jwks: JwksSource;
+}
+
+// @public
 export interface OtpEmail {
     code: string;
     to: string;
@@ -174,6 +202,7 @@ export interface VerifiedIdentity {
     displayName?: string;
     email: string;
     emailVerified: boolean;
+    provider?: string;
     providerSubject: string;
 }
 
@@ -185,6 +214,9 @@ export type VerifyGoogleResult = {
     ok: false;
     reason: GoogleFailureReason;
 };
+
+// @public
+export type VerifyOidcResult = VerifyGoogleResult;
 
 // @public (undocumented)
 export type VerifyOtpResult = {

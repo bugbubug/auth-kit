@@ -279,6 +279,8 @@ describe("Email OTP — verifyOtp", () => {
     expect(ok.ok).toBe(true);
     if (!ok.ok) throw new Error("unreachable");
     expect(ok.identity.providerSubject).toBe("email:user@example.com");
+    // The additive provider discriminant names the method without prefix-parsing.
+    expect(ok.identity.provider).toBe("email");
     expect(ok.identity.email).toBe("user@example.com");
     expect(ok.identity.emailVerified).toBe(true);
     // Email OTP carries no displayName.

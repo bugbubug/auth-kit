@@ -52,4 +52,68 @@ export interface AppliedGoogleConfig {
  * allowedIssuers is omitted.
  */
 export declare function validateGoogleConfig(config: GoogleVerifierConfig): AppliedGoogleConfig;
+/**
+ * Config for the generic OIDC id_token verifier (createOidcVerifier). The
+ * Google verifier is a thin preset over this engine; a new provider (Apple,
+ * Microsoft, …) is just another config instance.
+ */
+export interface OidcVerifierConfig {
+    /**
+     * Accepted `iss` values. REQUIRED and non-empty — unlike the Google preset,
+     * generic OIDC has no default issuers, so an empty/omitted list throws
+     * AuthKitError("config_invalid") at construction.
+     */
+    allowedIssuers: string[];
+    /**
+     * The OAuth client id(s) a valid id_token's `aud` must be one of. REQUIRED
+     * and non-empty — an empty list throws AuthKitError("config_invalid") at
+     * construction (a wildcard audience is never allowed).
+     */
+    allowedAudiences: string[];
+    /**
+     * The provider prefix for the projected identity, e.g. "google" — produces
+     * providerSubject `${subjectPrefix}:${sub}` (and VerifiedIdentity.provider).
+     * REQUIRED and non-blank.
+     */
+    subjectPrefix: string;
+    /**
+     * Explicit signature-algorithm allowlist passed to jose. Defaults to
+     * ["RS256"]; when provided it must be non-empty (an empty allowlist would
+     * reject everything — that is a config fault, not a policy).
+     */
+    algorithms?: string[];
+    /**
+     * Whether the `email_verified` claim must be true (boolean true or the
+     * string "true") for verification to succeed. Default true (the Google
+     * policy). When false, an unverified email is accepted and the claim's
+     * truthiness is surfaced as VerifiedIdentity.emailVerified; a usable `email`
+     * claim is still REQUIRED either way (missing_email).
+     */
+    requireEmailVerified?: boolean;
+    /** The claim projected to VerifiedIdentity.displayName. Default "name". */
+    displayNameClaim?: string;
+}
+/** The applied (no-undefined) generic OIDC verifier config. */
+export interface AppliedOidcConfig {
+    allowedIssuers: string[];
+    allowedAudiences: string[];
+    subjectPrefix: string;
+    algorithms: string[];
+    requireEmailVerified: boolean;
+    displayNameClaim: string;
+}
+/**
+ * Validate + apply defaults for an OidcVerifierConfig. Throws
+ * AuthKitError("config_invalid") when:
+ *   • allowedIssuers is missing, not an array, empty, or contains a
+ *     non-string / blank entry (generic OIDC has no default issuers); or
+ *   • allowedAudiences is missing, not an array, empty, or contains a
+ *     non-string / blank entry (a wildcard audience is never allowed); or
+ *   • subjectPrefix is missing or blank; or
+ *   • algorithms is provided but empty / contains a blank entry; or
+ *   • displayNameClaim is provided but blank.
+ * Returns a fully-applied config with the defaults (algorithms ["RS256"],
+ * requireEmailVerified true, displayNameClaim "name") substituted when omitted.
+ */
+export declare function validateOidcConfig(config: OidcVerifierConfig): AppliedOidcConfig;
 //# sourceMappingURL=config.d.ts.map

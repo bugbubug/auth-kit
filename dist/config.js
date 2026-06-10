@@ -72,4 +72,74 @@ export function validateGoogleConfig(config) {
     }
     return { allowedAudiences: [...audiences], allowedIssuers: issuers };
 }
+/**
+ * Validate + apply defaults for an OidcVerifierConfig. Throws
+ * AuthKitError("config_invalid") when:
+ *   • allowedIssuers is missing, not an array, empty, or contains a
+ *     non-string / blank entry (generic OIDC has no default issuers); or
+ *   • allowedAudiences is missing, not an array, empty, or contains a
+ *     non-string / blank entry (a wildcard audience is never allowed); or
+ *   • subjectPrefix is missing or blank; or
+ *   • algorithms is provided but empty / contains a blank entry; or
+ *   • displayNameClaim is provided but blank.
+ * Returns a fully-applied config with the defaults (algorithms ["RS256"],
+ * requireEmailVerified true, displayNameClaim "name") substituted when omitted.
+ */
+export function validateOidcConfig(config) {
+    const issuers = config?.allowedIssuers;
+    if (!Array.isArray(issuers) || issuers.length === 0) {
+        throw new AuthKitError("config_invalid", "OidcVerifierConfig.allowedIssuers must be a non-empty array (generic OIDC has no default issuers)");
+    }
+    for (const iss of issuers) {
+        if (typeof iss !== "string" || iss.trim() === "") {
+            throw new AuthKitError("config_invalid", "OidcVerifierConfig.allowedIssuers entries must be non-empty strings");
+        }
+    }
+    const audiences = config.allowedAudiences;
+    if (!Array.isArray(audiences) || audiences.length === 0) {
+        throw new AuthKitError("config_invalid", "OidcVerifierConfig.allowedAudiences must be a non-empty array (a wildcard audience is never allowed)");
+    }
+    for (const aud of audiences) {
+        if (typeof aud !== "string" || aud.trim() === "") {
+            throw new AuthKitError("config_invalid", "OidcVerifierConfig.allowedAudiences entries must be non-empty strings");
+        }
+    }
+    if (typeof config.subjectPrefix !== "string" || config.subjectPrefix.trim() === "") {
+        throw new AuthKitError("config_invalid", "OidcVerifierConfig.subjectPrefix must be a non-empty string");
+    }
+    let algorithms;
+    if (config.algorithms === undefined) {
+        algorithms = ["RS256"];
+    }
+    else {
+        if (!Array.isArray(config.algorithms) || config.algorithms.length === 0) {
+            throw new AuthKitError("config_invalid", "OidcVerifierConfig.algorithms, when provided, must be a non-empty array");
+        }
+        for (const alg of config.algorithms) {
+            if (typeof alg !== "string" || alg.trim() === "") {
+                throw new AuthKitError("config_invalid", "OidcVerifierConfig.algorithms entries must be non-empty strings");
+            }
+        }
+        algorithms = [...config.algorithms];
+    }
+    let displayNameClaim;
+    if (config.displayNameClaim === undefined) {
+        displayNameClaim = "name";
+    }
+    else {
+        if (typeof config.displayNameClaim !== "string" ||
+            config.displayNameClaim.trim() === "") {
+            throw new AuthKitError("config_invalid", "OidcVerifierConfig.displayNameClaim, when provided, must be a non-empty string");
+        }
+        displayNameClaim = config.displayNameClaim;
+    }
+    return {
+        allowedIssuers: [...issuers],
+        allowedAudiences: [...audiences],
+        subjectPrefix: config.subjectPrefix,
+        algorithms,
+        requireEmailVerified: config.requireEmailVerified ?? true,
+        displayNameClaim,
+    };
+}
 //# sourceMappingURL=config.js.map

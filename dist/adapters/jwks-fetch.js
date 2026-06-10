@@ -19,15 +19,23 @@ import { systemClock } from "../util.js";
 const DEFAULT_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs";
 /** Fallback cache lifetime (seconds) when the response carries no usable max-age. */
 const FALLBACK_MAX_AGE_SECONDS = 3600;
+/** Default whole-operation (fetch + body read) timeout in milliseconds. */
+const DEFAULT_TIMEOUT_MS = 5000;
 export class FetchJwksSource {
     url;
     clock;
+    timeoutMs;
     cache = null;
     /** De-dupes concurrent refreshes so a burst of verifies fires one fetch. */
     inflight = null;
     constructor(opts) {
         this.url = opts?.url ?? DEFAULT_JWKS_URL;
         this.clock = opts?.clock ?? systemClock;
+        if (opts?.timeoutMs !== undefined &&
+            (!Number.isInteger(opts.timeoutMs) || opts.timeoutMs <= 0)) {
+            throw new AuthKitError("config_invalid", `FetchJwksOptions.timeoutMs must be a positive integer, got ${String(opts.timeoutMs)}`);
+        }
+        this.timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     }
     async getKeys() {
         const now = this.clock.now();
@@ -44,14 +52,14 @@ export class FetchJwksSource {
         return this.inflight;
     }
     async refresh() {
-        // Keep the 5s timeout armed across the WHOLE operation — both the fetch
-        // (headers) AND the body read — so a stalled body can't hang past the
-        // deadline. A single clearTimeout in finally disarms it after the body
-        // read completes or after any throw.
+        // Keep the timeout (timeoutMs, default 5s) armed across the WHOLE
+        // operation — both the fetch (headers) AND the body read — so a stalled
+        // body can't hang past the deadline. A single clearTimeout in finally
+        // disarms it after the body read completes or after any throw.
         let response;
         let body;
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
         try {
             try {
                 response = await fetch(this.url, {

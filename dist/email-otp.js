@@ -153,6 +153,7 @@ export function createEmailOtpService(deps, config) {
         return {
             ok: true,
             identity: {
+                provider: "email",
                 providerSubject: "email:" + normalized,
                 email: normalized,
                 emailVerified: true,

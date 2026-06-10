@@ -19,10 +19,18 @@ export interface FetchJwksOptions {
     url?: string;
     /** Injected time source (epoch ms). Defaults to systemClock. */
     clock?: Clock;
+    /**
+     * Whole-operation timeout in MILLISECONDS for a JWKS refresh — the
+     * AbortController deadline that stays armed across both the `fetch` and the
+     * response-body read. Defaults to 5000. Must be a positive integer when
+     * provided, else AuthKitError("config_invalid") at construction.
+     */
+    timeoutMs?: number;
 }
 export declare class FetchJwksSource implements JwksSource {
     private readonly url;
     private readonly clock;
+    private readonly timeoutMs;
     private cache;
     /** De-dupes concurrent refreshes so a burst of verifies fires one fetch. */
     private inflight;

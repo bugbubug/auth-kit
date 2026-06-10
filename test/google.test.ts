@@ -133,6 +133,8 @@ describe("Google verifier — happy path", () => {
     if (!res.ok) throw new Error("expected ok");
     // providerSubject is google:<sub>, NEVER the email.
     expect(res.identity.providerSubject).toBe("google:google-sub-1234567890");
+    // The additive provider discriminant names the method without prefix-parsing.
+    expect(res.identity.provider).toBe("google");
     // email is normalized (trim + lowercase).
     expect(res.identity.email).toBe("person@example.com");
     expect(res.identity.emailVerified).toBe(true);

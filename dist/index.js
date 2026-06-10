@@ -16,6 +16,7 @@ export { AuthKitError } from "./types.js";
 export { EMAIL_OTP_DEFAULTS, GOOGLE_DEFAULT_ISSUERS } from "./config.js";
 export { createEmailOtpService } from "./email-otp.js";
 export { createGoogleVerifier } from "./google.js";
+export { createOidcVerifier } from "./oidc.js";
 // ── Built-in helpers (re-exported defaults; optional use) ────────────────────
 export { defaultCodeGenerator } from "./crypto.js";
 export { systemClock, normalizeEmail } from "./util.js";

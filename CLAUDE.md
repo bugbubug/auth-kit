@@ -11,8 +11,9 @@ emo/habibi are pnpm workspaces.
 ## What this is
 
 A **pure, hexagonal auth-VERIFICATION library**. It proves a caller controls an
-identifier and returns a single `VerifiedIdentity`. **Two methods only:** Email
-OTP and Google `id_token` verification.
+identifier and returns a single `VerifiedIdentity`. **Two flows:** Email OTP and
+OIDC `id_token` verification (since v1.2 a generic, config-parameterized engine —
+`createOidcVerifier` — with Google shipping as the built-in preset).
 
 It is **not** a service and does **not** own users/sessions/cookies/account-linking.
 It runs **in-process** in the consumer's Worker. The consumer (emo) owns identity,
@@ -36,22 +37,49 @@ value that runs unchanged on Workers/Node/bun. Surface unchanged (value-only); o
 hashes still verify (the count is parsed from the stored string), and a Node-only
 consumer can still pass `{ iterations: 600_000 }` explicitly.
 
+**v1.2.0-dev (UNRELEASED — committed after v1.1.1, not yet tagged; all
+ADDITIVE, every pre-existing test passes unchanged):**
+
+1. **Generic OIDC verifier extracted** — `src/oidc.ts` `createOidcVerifier(deps,
+   config)` (+ `OidcVerifierDeps`/`OidcVerifier` there, `OidcVerifierConfig` +
+   `validateOidcConfig` in `src/config.ts`, additive aliases
+   `OidcFailureReason = GoogleFailureReason` / `VerifyOidcResult =
+   VerifyGoogleResult` in `src/types.ts`). The whole verification pipeline moved
+   there verbatim, parameterized by `allowedIssuers` (required — no generic
+   default) / `allowedAudiences` / `subjectPrefix` (→ `<prefix>:<sub>`) /
+   `algorithms` (default `["RS256"]`) / `requireEmailVerified` (default true) /
+   `displayNameClaim` (default `"name"`). `createGoogleVerifier` is now a THIN
+   PRESET: `validateGoogleConfig` (Google issuer defaulting + exact error
+   messages) then delegate with `subjectPrefix: "google"` — behavior
+   byte-compatible. Adding Apple/Microsoft login is now just another config.
+2. **`VerifiedIdentity.provider?: string`** (additive optional) — the method
+   discriminant (`"email"` / `"google"` / the OIDC `subjectPrefix`), matching
+   the `providerSubject` prefix so consumers stop parsing it. Optional in the
+   frozen type, but ALWAYS populated by the engines from v1.2.
+3. **`FetchJwksOptions.timeoutMs?: number`** (default 5000) — the
+   whole-operation JWKS abort deadline is now configurable; a
+   non-positive/non-integer value throws `AuthKitError("config_invalid")` at
+   construction.
+
 ## Layout (hexagonal)
 
 ```
 src/
   index.ts          FROZEN public barrel — IS the contract surface (frozen baseline: etc/auth-kit.api.md)
-  types.ts          VerifiedIdentity, result/reason unions, AuthKitError (no logic)
+  types.ts          VerifiedIdentity (+ v1.2 provider?), result/reason unions (+ v1.2 Oidc aliases), AuthKitError (no logic)
   ports.ts          port interfaces: OtpStore/OtpRecord, EmailSender/OtpEmail, JwksSource/Jwk, Clock, CodeGenerator
-  config.ts         EmailOtpConfig/GoogleVerifierConfig, defaults, validators (applyEmailDefaults/validateGoogleConfig)
+  config.ts         EmailOtpConfig/GoogleVerifierConfig/OidcVerifierConfig, defaults, validators
+                    (applyEmailDefaults/validateGoogleConfig/validateOidcConfig)
   email-otp.ts      createEmailOtpService — deterministic OTP flow
-  google.ts         createGoogleVerifier — parse + jose verify + claim checks
+  oidc.ts           v1.2 createOidcVerifier — the generic engine: parse + jose verify + claim checks + projection
+  google.ts         createGoogleVerifier — THIN PRESET over oidc.ts (Google issuers + subjectPrefix "google")
   crypto.ts         sha256Hex, constant-time compare, defaultCodeGenerator (WebCrypto)
   util.ts           normalizeEmail (exported, frozen), systemClock, otpKey
   zod.ts            OPTIONAL non-frozen "@bugbubug/auth-kit/zod" subpath (imports zod peer)
-  adapters/         OPTIONAL GENERIC adapters: FetchJwksSource, StaticJwksSource,
-                    InMemoryOtpStore, NoopEmailSender, RecordingEmailSender
-test/               bun test: email-otp, google (real keypair via jose), contract seam;
+  adapters/         OPTIONAL GENERIC adapters: FetchJwksSource (v1.2: configurable timeoutMs),
+                    StaticJwksSource, InMemoryOtpStore, NoopEmailSender, RecordingEmailSender
+test/               bun test: email-otp, google (real keypair via jose), oidc (custom provider),
+                    jwks-fetch (timeout), password, contract seam;
                     zod-mirror.type-test.ts (typecheck-only drift guard, not a runtime test)
 etc/                auth-kit.api.md — AUTHORITATIVE frozen surface (api-extractor report)
 docs/               BUILD_PLAN.md, OPEN_RISKS.md, API.md
@@ -116,7 +144,8 @@ gains/loses/retypes a field, `bun run typecheck` FAILS.
    ban is now enforced by **ESLint** (`eslint.config.js`, `no-restricted-imports`
    under `src/**`, exempting `src/adapters/**` + `src/zod.ts`) — a cheap,
    CI-decidable proxy for "minimal third-party runtime import graph". `jose` is an
-   allowed runtime dep (used only in `src/google.ts`). Run `bun run lint`.
+   allowed runtime dep (used only in `src/oidc.ts` — the generic engine
+   `src/google.ts` is a preset of since v1.2). Run `bun run lint`.
 2. **Expected outcomes are discriminated unions, NOT throws.** `StartOtpResult`,
    `VerifyOtpResult`, `VerifyGoogleResult` carry every caller-recoverable outcome
    (`sent`/`throttled`, `expired`/`mismatch`/`locked`/`not_found`, the Google
@@ -130,12 +159,13 @@ gains/loses/retypes a field, `bun run typecheck` FAILS.
    live codes.
 5. **Egress ONLY via `FetchJwksSource` + a real `EmailSender`.** The core makes
    no network calls. Dev/test inject `StaticJwksSource` + `NoopEmailSender`/
-   `RecordingEmailSender` → zero egress. `FetchJwksSource` arms a 5s
-   `AbortController` timeout that stays armed across **both** the `fetch` and the
-   response-body read (v1.0.2/v1.0.3), so a stalled JWKS endpoint can't hang the
-   verify path; it still raises the three distinct `jwks_failure` messages
-   (network / non-2xx / invalid-JSON).
-6. **Google verify goes through the `JwksSource` PORT** — fetch keys, then verify
+   `RecordingEmailSender` → zero egress. `FetchJwksSource` arms an
+   `AbortController` timeout (`timeoutMs`, default 5000 — configurable since
+   v1.2) that stays armed across **both** the `fetch` and the response-body read
+   (v1.0.2/v1.0.3), so a stalled JWKS endpoint can't hang the verify path; it
+   still raises the three distinct `jwks_failure` messages (network / non-2xx /
+   invalid-JSON).
+6. **Google/OIDC verify goes through the `JwksSource` PORT** — fetch keys, then verify
    with `jose`'s low-level API. **Never** `jose.createRemoteJWKSet` (that would
    make the core fetch the network directly and bypass the port / the zero-egress
    guarantee).

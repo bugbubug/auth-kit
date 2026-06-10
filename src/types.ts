@@ -31,6 +31,12 @@ export interface VerifiedIdentity {
    */
   providerSubject: string;
   /**
+   * The verification method/provider that produced this identity, e.g. "email"
+   * or "google" (matches the providerSubject prefix). Optional in the type for
+   * frozen-contract compatibility; always populated by the engines from v1.2.
+   */
+  provider?: string;
+  /**
    * The address, ALWAYS normalized: trimmed + lowercased. For Email OTP this is
    * the verified address; for Google it is the `email` claim (only present when
    * emailVerified is true — see below).
@@ -93,6 +99,22 @@ export type GoogleFailureReason =
 export type VerifyGoogleResult =
   | { ok: true; identity: VerifiedIdentity }
   | { ok: false; reason: GoogleFailureReason };
+
+/**
+ * Why a generic OIDC id_token verification failed (expected). The generic OIDC
+ * pipeline (createOidcVerifier) is the engine the Google verifier is a preset
+ * of, so it produces the exact same reason set — this alias names that fact
+ * additively without retyping the frozen GoogleFailureReason.
+ */
+export type OidcFailureReason = GoogleFailureReason;
+
+/**
+ * Result of a generic OIDC id_token verification. Identical to the frozen
+ * VerifyGoogleResult (the Google verifier is a preset of the OIDC pipeline);
+ * the alias exists so OIDC-generic call sites don't have to name a
+ * Google-specific type.
+ */
+export type VerifyOidcResult = VerifyGoogleResult;
 
 /**
  * Thrown ONLY for programmer/configuration faults the caller cannot recover from

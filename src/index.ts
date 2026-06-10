@@ -55,6 +55,16 @@ export type {
 } from "./google.js";
 export { createGoogleVerifier } from "./google.js";
 
+// ── Generic OIDC verifier (additive, v1.2): the engine createGoogleVerifier is
+//    a preset of. New providers (Apple, Microsoft, …) are just another config. ─
+export type { OidcFailureReason, VerifyOidcResult } from "./types.js";
+export type { OidcVerifierConfig } from "./config.js";
+export type {
+  OidcVerifierDeps,
+  OidcVerifier,
+} from "./oidc.js";
+export { createOidcVerifier } from "./oidc.js";
+
 // ── Built-in helpers (re-exported defaults; optional use) ────────────────────
 export { defaultCodeGenerator } from "./crypto.js";
 export { systemClock, normalizeEmail } from "./util.js";

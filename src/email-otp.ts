@@ -230,6 +230,7 @@ export function createEmailOtpService(
     return {
       ok: true,
       identity: {
+        provider: "email",
         providerSubject: "email:" + normalized,
         email: normalized,
         emailVerified: true,

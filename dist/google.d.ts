@@ -1,18 +1,16 @@
 /**
- * Google id_token verifier — verifies a GIS-issued id_token against Google's
- * JWKS with `jose`, then enforces iss/aud/exp + email_verified, and projects the
- * VerifiedIdentity (providerSubject `google:<sub>`, normalized email, optional
- * displayName from `name`).
+ * Google id_token verifier — a thin PRESET over the generic OIDC engine
+ * (./oidc): validateGoogleConfig keeps the Google-specific defaulting (the two
+ * Google issuers) and its exact error messages, then delegates to
+ * createOidcVerifier with subjectPrefix "google" (RS256 allowlist,
+ * email_verified required — the engine's defaults ARE the Google policy).
  *
- * Hexagonal: the CORE owns the structural parse, signature verification, claim
- * checks, and identity projection. The CONSUMER injects a JwksSource (real fetch
- * adapter in production; a StaticJwksSource in tests — zero egress) and a Clock.
- *
- * Egress discipline: this file performs NO network I/O. Signature verification
- * runs against a LOCAL JWK set built from `jwks.getKeys()` via
- * `jose.createLocalJWKSet`. `jose.createRemoteJWKSet` is NEVER used here — that
- * would fetch behind the core's back and break the injected-source contract +
- * zero-egress tests. Any real fetch lives entirely inside the injected adapter.
+ * The verification pipeline itself — structural JWT parse, local-JWKS signature
+ * verification via the injected JwksSource port (never
+ * jose.createRemoteJWKSet), iss/aud/exp against the injected Clock, the
+ * email_verified/email/sub claim policy, and the VerifiedIdentity projection
+ * (providerSubject `google:<sub>`, normalized email, optional displayName from
+ * `name`) — lives in ./oidc and behaves byte-for-byte as it did here.
  *
  * Result model: every EXPECTED verification outcome is a typed
  * GoogleFailureReason in the VerifyGoogleResult union — never thrown. Only a
